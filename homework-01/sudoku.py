@@ -31,7 +31,7 @@ class SudokuGUI:
             if not self.debug:
                 self.sudoku.write_puzzle(puzzle, puzzle_path)
 
-        solution = None #self.sudoku.solve(puzzle)
+        solution = None  # self.sudoku.solve(puzzle)
         self.draw_grid(puzzle=puzzle, solution=solution)
 
         while True:
@@ -56,6 +56,62 @@ class SudokuGUI:
                 rect = pygame.Rect(x, y, block_size, block_size)
                 self.screen.blit(text, (y + 20, x))
                 pygame.draw.rect(self.screen, Colors.WHITE, rect, 1)
+
+
+class Shuffle:
+    @staticmethod
+    def transposing(table):
+        """ Transposing the whole grid """
+        table = map(list, zip(*table))
+        return list(table)
+
+    @staticmethod
+    def swap_rows_small(table):
+        """ Swap the two rows """
+        area = random.randrange(0, 3, 1)
+        line1 = random.randrange(0, 3, 1)
+        N1 = area * 3 + line1
+
+        line2 = random.randrange(0, 3, 1)
+        while line1 == line2:
+            line2 = random.randrange(0, 3, 1)
+
+        N2 = area * 3 + line2
+
+        table[N1], table[N2] = table[N2], table[N1]
+        return table
+
+    @staticmethod
+    def swap_colums_small(table):
+        table = Shuffle.transposing(table)
+        table = Shuffle.swap_rows_small(table)
+        table = Shuffle.transposing(table)
+        return table
+
+    @staticmethod
+    def swap_rows_area(table):
+        """ Swap the two area horizon """
+        area1 = random.randrange(0, 3, 1)
+        area2 = random.randrange(0, 3, 1)
+        while area1 == area2:
+            area2 = random.randrange(0, 3, 1)
+
+        for i in range(0, 3):
+            N1, N2 = area1 * 3 + i, area2 * 3 + i
+            table[N1], table[N2] = table[N2], table[N1]
+
+        return table
+
+    @staticmethod
+    def shuffle(table, amount):
+        shuffle_func = [Shuffle.transposing,
+                        Shuffle.swap_rows_small,
+                        Shuffle.swap_colums_small,
+                        Shuffle.swap_rows_area]
+        for i in range(1, amount):
+            id_func = random.randrange(0, len(shuffle_func), 1)
+            table = shuffle_func[id_func](table)
+        return table
 
 
 class SudokuTerminal:
@@ -98,27 +154,8 @@ class SudokuTerminal:
             return 1 if item != "*" else 0
 
     def generate_puzzle(self, solved_count) -> list[list]:
-        def shuffle_rows_in_block(puzzle):
-            block_ind = random.randint(0, 2) * 3
-            rows = puzzle[block_ind:block_ind + 3]
-            random.shuffle(rows)
-            puzzle[block_ind:block_ind + 3] = rows
-            return puzzle
-
-        def shuffle_cols_in_block(puzzle):
-            transposed_puzzle = list(map(list, zip(*puzzle)))
-            transposed_puzzle = shuffle_rows_in_block(transposed_puzzle)
-            return list(map(list, zip(*transposed_puzzle)))
-
-        def shuffle_blocks(puzzle):
-            blocks = [puzzle[i:i + 3] for i in range(0, 9, 3)]
-            random.shuffle(blocks)
-            return [block[j] for block in blocks for j in range(3)]
-
         result = self.create_static_puzzle()
-        result = shuffle_rows_in_block(result)
-        result = shuffle_cols_in_block(result)
-        result = shuffle_blocks(result)
+        result = Shuffle.shuffle(result, 13)
 
         solved = self.recursive_len(result)
         solved_count = 81 if solved_count > 81 else solved_count
@@ -138,13 +175,15 @@ class SudokuTerminal:
     @staticmethod
     def write_puzzle(puzzle: list[list], path: str = 'puzzle.json'):
         with open(path, 'w') as output_file:
-            json.dump(puzzle, output_file)#, indent=2)
+            json.dump(puzzle, output_file)  # , indent=2)
 
     @staticmethod
     def read_puzzle(path: str = 'puzzle.json') -> list[list]:
         with open(path) as f:
             puzzle = json.load(f)
         return puzzle
+
+    # def
 
     def solve(self, puzzle: list[list]) -> list[list]:
         result = copy.deepcopy(puzzle)
@@ -188,7 +227,7 @@ class SudokuTerminal:
 
 def main():
     game = SudokuGUI(debug=True)
-    game.start(46)
+    game.start(80)
 
 
 if __name__ == "__main__":
