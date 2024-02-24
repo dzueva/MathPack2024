@@ -13,6 +13,9 @@ class Colors:
 
 
 class SudokuGUI:
+    """
+    Pretty sudoku GUI, made with pygame. Only for showing purposes.
+    """
     def __init__(self, width=540, height=540, debug=False):
         self.window_width = width
         self.window_height = height
@@ -31,7 +34,7 @@ class SudokuGUI:
             if not self.debug:
                 self.sudoku.write_puzzle(puzzle, puzzle_path)
 
-        solution = None  # self.sudoku.solve(puzzle)
+        solution = self.sudoku.solve(puzzle)
         self.draw_grid(puzzle=puzzle, solution=solution)
 
         while True:
@@ -59,6 +62,9 @@ class SudokuGUI:
 
 
 class Shuffle:
+    """
+    Shuffling methods for more interesting and complex puzzles.
+    """
     @staticmethod
     def transposing(table):
         """ Transposing the whole grid """
@@ -103,7 +109,14 @@ class Shuffle:
         return table
 
     @staticmethod
-    def shuffle(table, amount):
+    def shuffle(table: list[list], amount: int):
+        """
+        Main function to shuffle the grid.
+
+        :param table: un-shuffled sudoku
+        :param amount: amount of times to shuffle
+        :return: shuffled sudoku
+        """
         shuffle_func = [Shuffle.transposing,
                         Shuffle.swap_rows_small,
                         Shuffle.swap_colums_small,
@@ -141,6 +154,11 @@ class SudokuTerminal:
 
     @staticmethod
     def create_static_puzzle() -> list[list]:
+        """
+        Creates static but solvable sudoku grid.
+
+        :return: the same sudoku puzzle every time
+        """
         result = [[0 for _ in range(9)] for _ in range(9)]
         for i in range(9):
             for j in range(9):
@@ -148,6 +166,12 @@ class SudokuTerminal:
         return result
 
     def recursive_len(self, item):
+        """
+
+
+        :param item: puzzle | list
+        :return: length of all items in list that are not "*"
+        """
         if type(item) == list:
             return sum(self.recursive_len(subitem) for subitem in item)
         else:
@@ -183,7 +207,91 @@ class SudokuTerminal:
             puzzle = json.load(f)
         return puzzle
 
-    # def
+    @staticmethod
+    def check_solution(solution: list[list]) -> bool:
+        """
+        Checks if the puzzle solution is valid.
+
+        :param solution: puzzle solution
+        :return: `True` if the solution is valid, else `False`
+        """
+        for row in range(0, 9):
+            d = {}
+            for col in range(0, 9):
+                val = solution[row][col]
+                if val != '*' and val in d:
+                    return False
+                d[val] = 1
+
+        for col in range(0, 9):
+            d = {}
+            for row in range(0, 9):
+                val = solution[row][col]
+                if val != '*' and val in d:
+                    return False
+                d[val] = 1
+
+        for i in range(0, 3):
+            for j in range(0, 3):
+                d = {}
+                for r in range(0, 3):
+                    for c in range(0, 3):
+                        row = (3 * i) + r
+                        col = (3 * j) + c
+                        val = solution[row][col]
+                        if val != '*' and val in d:
+                            return False
+                        d[val] = 1
+                        return True
+
+    @staticmethod
+    def cell_choice(puzzle: list[list], col_ind, row_ind):
+        """
+        Get all possible choices for a cell solution.
+
+        :param puzzle: the puzzle
+        :param col_ind: cell column index
+        :param row_ind: cell row index
+        :return: all possible cell solutions
+        """
+        solved_row_cells = [x for x in SudokuTerminal.get_row(puzzle, row_ind) if x != "*"]
+        solved_column_cells = [x for x in SudokuTerminal.get_column(puzzle, col_ind) if x != "*"]
+        solved_square_cells = [x for x in SudokuTerminal.get_square(puzzle, col_ind, row_ind) if x != "*"]
+        solved = solved_row_cells.copy()
+        solved.extend(x for x in solved_column_cells if x not in solved)
+        solved.extend(x for x in solved_square_cells if x not in solved)
+        cell_choices = [str(x) for x in range(1, 10) if str(x) not in solved]
+        return cell_choices
+
+    @staticmethod
+    def get_cell_solutions(puzzle: list[list]):
+        result = [[ ["solved"] for _ in range(9)] for _ in range(9)]
+        for row_ind in range(len(puzzle)):
+            for col_ind in range(len(puzzle[row_ind])):
+                if puzzle[row_ind][col_ind] != "*":
+                    continue
+                cell_choices = SudokuTerminal.cell_choice(puzzle, col_ind, row_ind)
+                result[row_ind][col_ind] = cell_choices
+        return result
+
+    @staticmethod
+    def solve_all_ones(puzzle: list[list]):
+        """
+        Solves all cells that can be solved with `fill if theres a single possible answer` method.
+
+        :param puzzle: sudoku puzzle
+        """
+        all_solutions = SudokuTerminal.get_cell_solutions(puzzle)
+        while any(isinstance(item, list) and len(item) == 1 and item[0] != 'solved' for sublist in all_solutions for item in sublist):
+            print("a")
+            for row_ind in range(len(all_solutions)):
+                for col_ind in range(len(all_solutions[row_ind])):
+                    if puzzle[row_ind][col_ind] != "*":
+                        continue
+                    cell_choices = all_solutions[row_ind][col_ind]
+                    if len(cell_choices) == 1:
+                        puzzle[row_ind][col_ind] = cell_choices[0]
+            all_solutions = SudokuTerminal.get_cell_solutions(puzzle)
 
     def solve(self, puzzle: list[list]) -> list[list]:
         result = copy.deepcopy(puzzle)
@@ -193,33 +301,39 @@ class SudokuTerminal:
             raise Exception("The sudoku is empty!")
         if self.recursive_len(result) < 17:
             raise Exception("This is not solvable!")
-        while any("*" in sl for sl in result):
-            for row_ind in range(len(result)):
-                row = result[row_ind]
-                if self.debug:
-                    print(f"sudoku row {row_ind}: {row}")
-                if "*" not in row:
-                    continue
-                solved_row_cells = [x for x in row if x != "*"]
-                for col_ind in range(len(row)):
-                    if row[col_ind] != "*":
-                        continue
-                    solved_column_cells = [x for x in self.get_column(result, col_ind) if x != "*"]
-                    solved_square_cells = [x for x in self.get_square(result, col_ind, row_ind) if x != "*"]
-                    solved = solved_row_cells.copy()
-                    solved.extend(x for x in solved_column_cells if x not in solved)
-                    solved.extend(x for x in solved_square_cells if x not in solved)
-                    cell_choices = [str(x) for x in range(1, 10) if str(x) not in solved]
-                    if not cell_choices:
-                        if self.debug:
-                            print(f"row {row_ind}, column {col_ind}, the cell: {row[col_ind]}\nsolved cells: {solved}")
-                        raise Exception("This is not solvable!")
-                    if len(cell_choices) == 1:
-                        row[col_ind] = cell_choices[0]
-                    solved_column_cells = []
-                    solved_square_cells = []
-                    solved = []
-                result[row_ind] = row
+        self.solve_all_ones(result)
+        print(self.check_solution(result))
+        # while any("*" in sl for sl in result):
+        # for row_ind in range(len(result)):
+        #     row = result[row_ind]
+        #     # if self.debug:
+        #     #     print(f"sudoku row {row_ind}: {row}")
+        #     if "*" not in row:
+        #         continue
+        #     for col_ind in range(len(row)):
+        #         if row[col_ind] != "*":
+        #             continue
+        #         cell_choices = self.cell_choice(puzzle, col_ind, row_ind)
+        #         if not cell_choices:
+        #             if self.debug:
+        #                 print(f"row {row_ind}, column {col_ind}, the cell: {row[col_ind]}")
+        #             raise Exception("This is not solvable!")
+        #         # if len(cell_choices) == 1:
+        #         #     result[row_ind][col_ind] = cell_choices[0]
+        #         else:
+        #             print(f"the row: {result[row_ind]}")
+        #             print(f"the column: {self.get_column(result, col_ind)}")
+        #             print(f"the square: {self.get_square(result, col_ind, row_ind)}")
+        #             print(f"choices: {cell_choices}")
+        #             for choice in cell_choices:
+        #                 result[row_ind][col_ind] = choice
+        #                 if not self.check_solution(result):
+        #                     result[row_ind][col_ind] = "*"
+        #                     print('test')
+        #                 else:
+        #                     break
+        #                     # result[row_ind] =
+        #         solved = []
         if self.debug:
             print("sudoku solved!")
         return result
@@ -227,7 +341,7 @@ class SudokuTerminal:
 
 def main():
     game = SudokuGUI(debug=True)
-    game.start(80)
+    game.start(40)
 
 
 if __name__ == "__main__":
